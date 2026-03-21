@@ -22,6 +22,7 @@ class ViewController: UIViewController {
     let camera = PerspectiveCamera()
     var pitch: Float = 0.0
     var yaw: Float = 0.0
+    var cameraDistance: Float = Constant.cameraDistance
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -51,23 +52,29 @@ class ViewController: UIViewController {
         let pinch = UIPinchGestureRecognizer(target: self, action: #selector(handlePinch))
         arView.addGestureRecognizer(pinch)
     }
-        
+    
     @objc func handlePan(recognizer: UIPanGestureRecognizer) {
-        let translate = recognizer.translation(in: recognizer.view)
-        let deltaUp = Float(translate.y / 200)
-        let deltaRight = Float(translate.x / 100)
-        recognizer.setTranslation(.zero, in: recognizer.view)
-        
-        pitch += deltaUp
-        yaw += deltaRight
-        
-        // move camera around world center
-        camera.position = [-Constant.cameraDistance * sin(yaw),
-                            Constant.cameraDistance * sin(pitch),
-                            Constant.cameraDistance * cos(pitch) * cos(yaw)]
-        
-        // point camera at world center
-        camera.look(at: .zero, from: camera.position, relativeTo: nil)
+        switch recognizer.state {
+        case .began:
+            cameraDistance = sqrt(pow(camera.position.x, 2) + pow(camera.position.y, 2) + pow(camera.position.z, 2))
+        case .changed:
+            let translate = recognizer.translation(in: recognizer.view)
+            let deltaUp = Float(translate.y / 200)
+            let deltaRight = Float(translate.x / 100)
+            recognizer.setTranslation(.zero, in: recognizer.view)
+            
+            pitch += deltaUp
+            yaw += deltaRight
+            
+            // move the camera around the center
+            camera.position = [-cameraDistance * sin(yaw),
+                                cameraDistance * sin(pitch),
+                                cameraDistance * cos(pitch) * cos(yaw)]
+            
+            // point the camera at the center
+            camera.look(at: .zero, from: camera.position, relativeTo: nil)
+        default: return
+        }
     }
 
     @objc func handlePinch(recognizer: UIPinchGestureRecognizer) {
