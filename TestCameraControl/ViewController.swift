@@ -4,6 +4,8 @@
 //
 //  Created by Phil Stern on 3/20/26.
 //
+//  Test of my version of pan and pinch.
+//
 
 import UIKit
 import RealityKit
@@ -45,6 +47,9 @@ class ViewController: UIViewController {
 
         let pan = UIPanGestureRecognizer(target: self, action: #selector(handlePan))
         arView.addGestureRecognizer(pan)
+        
+        let pinch = UIPinchGestureRecognizer(target: self, action: #selector(handlePinch))
+        arView.addGestureRecognizer(pinch)
     }
         
     @objc func handlePan(recognizer: UIPanGestureRecognizer) {
@@ -56,12 +61,23 @@ class ViewController: UIViewController {
         pitch += deltaUp
         yaw += deltaRight
         
-        // move the camera around the center
+        // move camera around world center
         camera.position = [-Constant.cameraDistance * sin(yaw),
                             Constant.cameraDistance * sin(pitch),
                             Constant.cameraDistance * cos(pitch) * cos(yaw)]
         
-        // point the camera at the center
+        // point camera at world center
         camera.look(at: .zero, from: camera.position, relativeTo: nil)
+    }
+
+    @objc func handlePinch(recognizer: UIPinchGestureRecognizer) {
+        switch recognizer.state {
+        case .changed, .ended:
+            camera.position.x *= 1 / Float(recognizer.scale)
+            camera.position.y *= 1 / Float(recognizer.scale)
+            camera.position.z *= 1 / Float(recognizer.scale)
+            recognizer.scale = 1
+        default: break
+        }
     }
 }
