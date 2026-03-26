@@ -47,7 +47,7 @@ class ViewController: UIViewController {
         greenCube.generateCollisionShapes(recursive: false)  // use with debugOptions
         worldAnchor.addChild(greenCube)
 
-        let floorMaterial = SimpleMaterial(color: .red, isMetallic: false)
+        let floorMaterial = SimpleMaterial(color: .lightGray, isMetallic: false)
         let redFloor = ModelEntity(mesh: .generateBox(size: [2, 0.1, 2]))
         redFloor.model?.materials = [floorMaterial]
         redFloor.position = [0, -1, 0]
@@ -66,37 +66,41 @@ class ViewController: UIViewController {
             cameraDistance = sqrt(pow(camera.position.x, 2) + pow(camera.position.y, 2) + pow(camera.position.z, 2))
         case .changed:
             let translate = recognizer.translation(in: recognizer.view)
-            let deltaUp = Float(translate.y / 200)
+            let deltaUp = Float(-translate.y / 200)
             let deltaRight = Float(translate.x / 100)
             recognizer.setTranslation(.zero, in: recognizer.view)
 
-            let camereEulers = camera.transform.matrix.eulerAngles  // [x, y, z], pitch, -yaw, -roll
-            print(String(format: "camera.eulerAngles: (x: %0.2f, y: %0.2f, z: %0.2f)", camereEulers.x * 57.3, camereEulers.y * 57.3, camereEulers.z * 57.3))
+            let camereEulers = camera.transform.matrix.eulerAngles
             
-//            // move the camera around the center
-//            camera.position = [-cameraDistance * sin(yaw),
-//                                cameraDistance * sin(pitch),
-//                                cameraDistance * cos(pitch) * cos(yaw)]
+            // Xcode definitions:
+            //   euler.x = pitch angle (pos. about x-axis, nose up)
+            //   euler.y = yaw angle (pos. about y-axis, nose left)
+            //   euler.z = bank angle (pos. about z-axis, bank left)
+            
+            let q = deltaUp  // pitch rate
+            var r = -deltaRight * cos(camereEulers.x)  // yaw rate
+            var p = deltaRight * sin(camereEulers.x)  // roll rate
+            if abs(camereEulers.z) > .pi / 2 {
+                // bug fix when past vertical
+                r = deltaRight * cos(camereEulers.x)
+                p = deltaRight * sin(camereEulers.x)
+            }
 
-            let p = deltaRight * sin(camereEulers.x)  // roll about camera z
-            let q = -deltaUp  // pitch about camera x
-            let r = -deltaRight * cos(camereEulers.x)  // yaw about camera y
-            
             let quatIC = camera.orientation.vector  // [x, y, z, w], where w is the rotation
             
-            // quaternion rates
+            // quaternion rates (aeronautical standard, except: p -> q, q -> r, r -> p)
             let qwDot = (-quatIC.x * q - quatIC.y * r - quatIC.z * p) / 2
             let qxDot = ( quatIC.w * q - quatIC.z * r + quatIC.y * p) / 2
             let qyDot = ( quatIC.z * q + quatIC.w * r - quatIC.x * p) / 2
             let qzDot = (-quatIC.y * q + quatIC.x * r + quatIC.w * p) / 2
             
-            // intergate
+            // intergate quaternion rates
             var qw = quatIC.w + qwDot
             var qx = quatIC.x + qxDot
             var qy = quatIC.y + qyDot
             var qz = quatIC.z + qzDot
             
-            // normalize to prevent error growth (probably not needed)
+            // normalize quaternions to prevent integration error growth
             let qnorm = sqrt(pow(qw, 2) + pow(qx, 2) + pow(qy, 2) + pow(qz, 2))
             
             qw /= qnorm
@@ -106,9 +110,9 @@ class ViewController: UIViewController {
             
             camera.orientation = simd_quatf(ix: qx, iy: qy, iz: qz, r: qw)
             
-            let eulerAngles = camera.transform.matrix.eulerAngles  // [x, y, z], pitch, -yaw, -roll
+            let eulerAngles = camera.transform.matrix.eulerAngles
             
-            // move the camera around the center
+            // back camera away from world center (still pointing at world center)
             camera.position = [ cameraDistance * cos(eulerAngles.x) * sin(eulerAngles.y),
                                -cameraDistance * sin(eulerAngles.x),
                                 cameraDistance * cos(eulerAngles.x) * cos(eulerAngles.y)]
