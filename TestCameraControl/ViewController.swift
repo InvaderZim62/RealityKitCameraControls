@@ -35,8 +35,7 @@ class ViewController: UIViewController {
     
     let worldAnchor = AnchorEntity()
     let camera = PerspectiveCamera()
-    var offsetPoint = ModelEntity()  // pws: eventually replace this with simd_float3.zero
-    var cameraDistance: Float = Constant.cameraDistance
+    var cameraOffset = simd_float3(0, 0, Constant.cameraDistance)
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -49,21 +48,12 @@ class ViewController: UIViewController {
         camera.position.z = Constant.cameraDistance
         worldAnchor.addChild(camera)
 
-        // greenCube is always aligned with world coordinates, since I'm only manipulating the camera
         let cubeMaterial = SimpleMaterial(color: .green, isMetallic: false)
         let greenCube = ModelEntity(mesh: .generateBox(size: [0.2, 0.2, 0.2]))
         greenCube.model?.materials = [cubeMaterial]
         greenCube.position = [0, 0, 0]
         greenCube.generateCollisionShapes(recursive: false)  // use with debugOptions
         worldAnchor.addChild(greenCube)
-
-        // offsetPoint shows the accumulated translating/strafing of the camera
-        let pointMaterial = SimpleMaterial(color: .lightGray, isMetallic: false)
-        offsetPoint = ModelEntity(mesh: .generateBox(size: [0.1, 0.1, 0.1]))
-        offsetPoint.model?.materials = [pointMaterial]
-        offsetPoint.position = [0, 0, 0]
-        offsetPoint.generateCollisionShapes(recursive: false)  // use with debugOptions
-        worldAnchor.addChild(offsetPoint)
 
         let pan = UIPanGestureRecognizer(target: self, action: #selector(handlePan))
         arView.addGestureRecognizer(pan)
@@ -75,13 +65,13 @@ class ViewController: UIViewController {
     @objc func handlePan(recognizer: UIPanGestureRecognizer) {
         switch recognizer.state {
         case .began:
-            print(String(format: "began - camera.position: %.2f, %.2f, %.2f", camera.position.x, camera.position.y, camera.position.z))
+            print(String(format: "began - camera.position: %.2f, %.2f, %.2f,   camera Eulers: %.1f, %.1f, %.1f", camera.position.x, camera.position.y, camera.position.z, camera.eulerAnglesDegrees.x, camera.eulerAnglesDegrees.y, camera.eulerAnglesDegrees.z))
         case .changed:
             if recognizer.numberOfTouches == 1 {
                 // rotate camera
                 let translation = recognizer.translation(in: recognizer.view)
-                let deltaUp = Float(-translation.y / 200)
-                let deltaRight = Float(translation.x / 100)
+                let deltaUp = Float(-translation.y / 150)
+                let deltaRight = Float(translation.x / 150)
                 recognizer.setTranslation(.zero, in: recognizer.view)
                 
                 // Xcode definitions:
@@ -98,32 +88,23 @@ class ViewController: UIViewController {
                 }
                 
                 camera.orientation = camera.orientation.rotatedBy(deltaPitch: deltaPitch, deltaYaw: deltaYaw, deltaRoll: deltaRoll)
-
-                // convert vector out back of camera (plus offset) to world coordinates, and place camera there
-                camera.position = transformVectorToWorld(offsetPoint.position + simd_float3(0, 0, cameraDistance), camera.transform.matrix)  // rotates about world origin (good)
-//                camera.position = transformVectorToWorld(simd_float3(0, 0, cameraDistance), camera.transform.matrix) + offsetPoint.position  // rotates about offsetPoint (bad)
                 
-               print(String(format: "rotated - camera.position: %.2f, %.2f, %.2f", camera.position.x, camera.position.y, camera.position.z))
+                print(String(format: "rotated - camera.position: %.2f, %.2f, %.2f,   camera Eulers: %.1f, %.1f, %.1f", camera.position.x, camera.position.y, camera.position.z, camera.eulerAnglesDegrees.x, camera.eulerAnglesDegrees.y, camera.eulerAnglesDegrees.z))
             } else if recognizer.numberOfTouches == 2 {
-                // strafe camera
+                // offset camera
                 let translation = recognizer.translation(in: recognizer.view)
                 recognizer.setTranslation(.zero, in: recognizer.view)
-                let deltaBody = simd_float3(Float(translation.x), Float(-translation.y), 0) / 100
-                let deltaWorld = transformVectorToWorld(deltaBody, camera.transform.matrix)
-                offsetPoint.position -= deltaWorld
-
-                camera.position -= deltaWorld  // always works, but discontinuity on first pass of rotation (same reason why next line doesn't work well)
-//                camera.position = transformVectorToWorld(offsetPoint.position + simd_float3(0, 0, cameraDistance), camera.transform.matrix)  // off-axes don't work (bad)
-//                camera.position = transformVectorToWorld(simd_float3(0, 0, cameraDistance), camera.transform.matrix) + offsetPoint.position  // moves camera with offsetPoint (good)
+                let deltaPosition = simd_float3(Float(translation.x), Float(-translation.y), 0) / 180
+                cameraOffset -= deltaPosition
                 
-                print(String(format: "strafed - deltaBody: %.4f, %.4f, %.4f", deltaBody.x, deltaBody.y, deltaBody.z))
-                print(String(format: "strafed - deltaWorld: %.4f, %.4f, %.4f", deltaWorld.x, deltaWorld.y, deltaWorld.z))
-                print(String(format: "strafed - offsetPoint.position: %.2f, %.2f, %.2f", offsetPoint.position.x, offsetPoint.position.y, offsetPoint.position.z))
-                print(String(format: "strafed - camera.position: %.2f, %.2f, %.2f", camera.position.x, camera.position.y, camera.position.z))
+                print(String(format: "strafed - deltaBody: %.4f, %.4f, %.4f", deltaPosition.x, deltaPosition.y, deltaPosition.z))
+                print(String(format: "strafed - cameraStrafe: %.2f, %.2f, %.2f", cameraOffset.x, cameraOffset.y, cameraOffset.z))
+                print(String(format: "strafed - camera.position: %.2f, %.2f, %.2f,   camera Eulers: %.1f, %.1f, %.1f", camera.position.x, camera.position.y, camera.position.z, camera.eulerAnglesDegrees.x, camera.eulerAnglesDegrees.y, camera.eulerAnglesDegrees.z))
                 print()
             }
+            camera.position = transformVectorToWorld(cameraOffset, camera.transform.matrix)
         case .ended:
-            print(String(format: "ended - camera.position: %.2f, %.2f, %.2f", camera.position.x, camera.position.y, camera.position.z))
+            print(String(format: "ended camera.position: %.2f, %.2f, %.2f,   camera Eulers: %.1f, %.1f, %.1f", camera.position.x, camera.position.y, camera.position.z, camera.eulerAnglesDegrees.x, camera.eulerAnglesDegrees.y, camera.eulerAnglesDegrees.z))
         default:
             return
         }
@@ -131,14 +112,8 @@ class ViewController: UIViewController {
 
     // pinching moves camera forwards/aft (ie. camera z-direction)
     @objc func handlePinch(recognizer: UIPinchGestureRecognizer) {
-//        var offsetPointToCamera = camera.position - offsetPoint.position
-//        offsetPointToCamera /= Float(recognizer.scale)
-//        camera.position = offsetPoint.position + offsetPointToCamera
-//        cameraDistance /= Float(recognizer.scale)
-        
-        // these always work
-        cameraDistance /= Float(recognizer.scale)
-        camera.position = transformVectorToWorld(offsetPoint.position + simd_float3(0, 0, cameraDistance), camera.transform.matrix)
+        cameraOffset.z /= Float(recognizer.scale)
+        camera.position = transformVectorToWorld(cameraOffset, camera.transform.matrix)
 
         recognizer.scale = 1
     }
