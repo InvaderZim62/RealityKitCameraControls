@@ -20,10 +20,14 @@
 //    camera.position += deltaBody
 //    camera.transform.translation += deltaBody
 //
+//  Xcode definitions:
+//    euler.x = pitch angle (pos. nose up)
+//    euler.y = yaw angle   (pos. nose left)
+//    euler.z = bank angle  (pos. bank left)
+//
 
 import UIKit
 import RealityKit
-import ARKit
 
 struct Constant {
     static let cameraDistance: Float = 4  // can't be at 0, for pinch to work
@@ -63,63 +67,41 @@ class ViewController: UIViewController {
     }
     
     @objc func handlePan(recognizer: UIPanGestureRecognizer) {
-        switch recognizer.state {
-        case .began:
-            print(String(format: "began - camera.position: %.2f, %.2f, %.2f,   camera Eulers: %.1f, %.1f, %.1f", camera.position.x, camera.position.y, camera.position.z, camera.eulerAnglesDegrees.x, camera.eulerAnglesDegrees.y, camera.eulerAnglesDegrees.z))
-        case .changed:
-            if recognizer.numberOfTouches == 1 {
-                // rotate camera
-                let translation = recognizer.translation(in: recognizer.view)
-                let deltaUp = Float(-translation.y / 150)
-                let deltaRight = Float(translation.x / 150)
-                recognizer.setTranslation(.zero, in: recognizer.view)
-                
-                // Xcode definitions:
-                //   euler.x = pitch angle (pos. about x-axis, nose up)
-                //   euler.y = yaw angle (pos. about y-axis, nose left)
-                //   euler.z = bank angle (pos. about z-axis, bank left)
-                let cameraEulers = camera.transform.matrix.eulerAngles
-                
-                let deltaPitch = deltaUp
-                var deltaYaw = -deltaRight * cos(cameraEulers.x)
-                let deltaRoll = deltaRight * sin(cameraEulers.x)
-                if abs(cameraEulers.z) > .pi / 2 {
-                    deltaYaw *= -1  // bug fix? when past vertical
-                }
-                
-                camera.orientation = camera.orientation.rotatedBy(deltaPitch: deltaPitch, deltaYaw: deltaYaw, deltaRoll: deltaRoll)
-                
-                print(String(format: "rotated - camera.position: %.2f, %.2f, %.2f,   camera Eulers: %.1f, %.1f, %.1f", camera.position.x, camera.position.y, camera.position.z, camera.eulerAnglesDegrees.x, camera.eulerAnglesDegrees.y, camera.eulerAnglesDegrees.z))
-            } else if recognizer.numberOfTouches == 2 {
-                // offset camera
-                let translation = recognizer.translation(in: recognizer.view)
-                recognizer.setTranslation(.zero, in: recognizer.view)
-                let deltaPosition = simd_float3(Float(translation.x), Float(-translation.y), 0) / 180
-                cameraOffset -= deltaPosition
-                
-                print(String(format: "strafed - deltaBody: %.4f, %.4f, %.4f", deltaPosition.x, deltaPosition.y, deltaPosition.z))
-                print(String(format: "strafed - cameraStrafe: %.2f, %.2f, %.2f", cameraOffset.x, cameraOffset.y, cameraOffset.z))
-                print(String(format: "strafed - camera.position: %.2f, %.2f, %.2f,   camera Eulers: %.1f, %.1f, %.1f", camera.position.x, camera.position.y, camera.position.z, camera.eulerAnglesDegrees.x, camera.eulerAnglesDegrees.y, camera.eulerAnglesDegrees.z))
-                print()
+        let translation = recognizer.translation(in: recognizer.view)
+        
+        if recognizer.numberOfTouches == 1 {
+            // rotate camera
+            let deltaUp = Float(-translation.y / 150)
+            let deltaRight = Float(translation.x / 150)
+
+            let cameraEulers = camera.transform.matrix.eulerAngles
+            
+            let deltaPitch = deltaUp
+            var deltaYaw = -deltaRight * cos(cameraEulers.x)
+            let deltaRoll = deltaRight * sin(cameraEulers.x)
+            if abs(cameraEulers.z) > .pi / 2 {
+                deltaYaw *= -1  // bug fix? when past vertical
             }
-            camera.position = transformVectorToWorld(cameraOffset, camera.transform.matrix)
-        case .ended:
-            print(String(format: "ended camera.position: %.2f, %.2f, %.2f,   camera Eulers: %.1f, %.1f, %.1f", camera.position.x, camera.position.y, camera.position.z, camera.eulerAnglesDegrees.x, camera.eulerAnglesDegrees.y, camera.eulerAnglesDegrees.z))
-        default:
-            return
+            camera.orientation = camera.orientation.rotatedBy(deltaPitch: deltaPitch, deltaYaw: deltaYaw, deltaRoll: deltaRoll)
+            
+        } else if recognizer.numberOfTouches == 2 {
+            // offset camera
+            let deltaPosition = simd_float3(Float(translation.x), Float(-translation.y), 0) / 180
+            cameraOffset -= deltaPosition
         }
+        camera.position = transformVector(cameraOffset, camera.transform.matrix)
+        recognizer.setTranslation(.zero, in: recognizer.view)
     }
 
     // pinching moves camera forwards/aft (ie. camera z-direction)
     @objc func handlePinch(recognizer: UIPinchGestureRecognizer) {
         cameraOffset.z /= Float(recognizer.scale)
-        camera.position = transformVectorToWorld(cameraOffset, camera.transform.matrix)
-
+        camera.position = transformVector(cameraOffset, camera.transform.matrix)
         recognizer.scale = 1
     }
     
-    // transform vector from body to world
-    public func transformVectorToWorld(_ vector: simd_float3, _ transform: simd_float4x4) -> simd_float3 {
+    // transform vector from body to world coordinates
+    public func transformVector(_ vector: simd_float3, _ transform: simd_float4x4) -> simd_float3 {
         let quat = simd_quatf(transform).vector  // simd_float4 (x, y, z, w)
         
         let t0 = -quat.x * vector.x - quat.y * vector.y - quat.z * vector.z
@@ -133,28 +115,6 @@ class ViewController: UIViewController {
         
         return simd_float3(v1, v2, v3)
     }
-    
-    // transform vector from world to body
-    public func transformVectorToBody(_ vector: simd_float3, _ transform: simd_float4x4) -> simd_float3 {
-        let quat = simd_quatf(transform).vector  // simd_float4 (x, y, z, w)
-        
-        let t0 = quat.x * vector.x + quat.y * vector.y + quat.z * vector.z
-        let t1 = quat.w * vector.x - quat.y * vector.z + quat.z * vector.y
-        let t2 = quat.w * vector.y + quat.x * vector.z - quat.z * vector.x
-        let t3 = quat.w * vector.z - quat.x * vector.y + quat.y * vector.x
-        
-        let v1 = t0 * quat.x + t1 * quat.w + t2 * quat.z - t3 * quat.y
-        let v2 = t0 * quat.y - t1 * quat.z + t2 * quat.w + t3 * quat.x
-        let v3 = t0 * quat.z + t1 * quat.y - t2 * quat.x + t3 * quat.w
-        
-        return simd_float3(v1, v2, v3)
-    }
-}
-
-extension simd_float3 {
-    var magnitude: Float {
-        sqrt(x * x + y * y + z * z)
-    }
 }
 
 extension simd_float4x4 {
@@ -164,40 +124,6 @@ extension simd_float4x4 {
             x: asin(-self[2][1]),
             y: atan2(self[2][0], self[2][2]),
             z: atan2(self[0][1], self[1][1])
-        )
-    }
-}
-
-extension PerspectiveCamera {
-    var eulerAngles: simd_float3 {
-        simd_float3(
-            x: asin(-self.transform.matrix[2][1]),
-            y: atan2(self.transform.matrix[2][0], self.transform.matrix[2][2]),
-            z: atan2(self.transform.matrix[0][1], self.transform.matrix[1][1])
-        )
-    }
-    var eulerAnglesDegrees: simd_float3 {
-        simd_float3(
-            x: asin(-self.transform.matrix[2][1]) * 180 / .pi,
-            y: atan2(self.transform.matrix[2][0], self.transform.matrix[2][2]) * 180 / .pi,
-            z: atan2(self.transform.matrix[0][1], self.transform.matrix[1][1] * 180 / .pi)
-        )
-    }
-}
-
-extension ModelEntity {
-    var eulerAngles: simd_float3 {
-        simd_float3(
-            x: asin(-self.transform.matrix[2][1]),
-            y: atan2(self.transform.matrix[2][0], self.transform.matrix[2][2]),
-            z: atan2(self.transform.matrix[0][1], self.transform.matrix[1][1])
-        )
-    }
-    var eulerAnglesDegrees: simd_float3 {
-        simd_float3(
-            x: asin(-self.transform.matrix[2][1]) * 180 / .pi,
-            y: atan2(self.transform.matrix[2][0], self.transform.matrix[2][2]) * 180 / .pi,
-            z: atan2(self.transform.matrix[0][1], self.transform.matrix[1][1] * 180 / .pi)
         )
     }
 }
