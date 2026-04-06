@@ -80,7 +80,7 @@ class ViewController: UIViewController {
             let deltaRight = Float(translation.x / 150)
             let deltaUp = Float(-translation.y / 150)
 
-            let deltaCamera = transformVectorFromWorldToLocal(vector: simd_float3(0, -deltaRight, 0), camera.orientation.vector)
+            let deltaCamera = convertVectorFromWorldToLocal(vector: simd_float3(0, -deltaRight, 0), camera.orientation)
             camera.orientation = camera.orientation.rotatedBy(deltaPitch: deltaUp + deltaCamera.x, deltaYaw: deltaCamera.y, deltaRoll: deltaCamera.z)
 
         } else if recognizer.numberOfTouches == 2 {
@@ -89,14 +89,14 @@ class ViewController: UIViewController {
             cameraOffset -= deltaPosition
         }
         
-        camera.position = transformVectorFromLocalToWorld(vector: cameraOffset, camera.orientation.vector)
+        camera.position = convertVectorFromLocalToWorld(vector: cameraOffset, camera.orientation)
         recognizer.setTranslation(.zero, in: recognizer.view)
     }
 
-    // pinching moves camera forwards/aft (ie. camera z-direction)
+    // pinching moves camera forward/aft (ie. camera z-direction)
     @objc func handlePinch(recognizer: UIPinchGestureRecognizer) {
         cameraOffset.z /= Float(recognizer.scale)
-        camera.position = transformVectorFromLocalToWorld(vector: cameraOffset, camera.orientation.vector)
+        camera.position = convertVectorFromLocalToWorld(vector: cameraOffset, camera.orientation)
         recognizer.scale = 1
     }
     
@@ -105,34 +105,16 @@ class ViewController: UIViewController {
         let deltaRoll = Float(recognizer.rotation)
         camera.orientation = camera.orientation.rotatedBy(deltaPitch: 0, deltaYaw: 0, deltaRoll: deltaRoll)
         let deltaQuat = simd_quatf(angle: deltaRoll, axis: [0, 0, 1])
-        cameraOffset = transformVectorFromWorldToLocal(vector: cameraOffset, deltaQuat.vector)
+        cameraOffset = convertVectorFromWorldToLocal(vector: cameraOffset, deltaQuat)
         recognizer.rotation = 0
     }
     
-    public func transformVectorFromLocalToWorld(vector: simd_float3, _ quat: simd_float4) -> simd_float3 {
-        let t0 = -quat.x * vector.x - quat.y * vector.y - quat.z * vector.z
-        let t1 =  quat.w * vector.x + quat.y * vector.z - quat.z * vector.y
-        let t2 =  quat.w * vector.y - quat.x * vector.z + quat.z * vector.x
-        let t3 =  quat.w * vector.z + quat.x * vector.y - quat.y * vector.x
-        
-        let v1 = -t0 * quat.x + t1 * quat.w - t2 * quat.z + t3 * quat.y
-        let v2 = -t0 * quat.y + t1 * quat.z + t2 * quat.w - t3 * quat.x
-        let v3 = -t0 * quat.z - t1 * quat.y + t2 * quat.x + t3 * quat.w
-        
-        return simd_float3(v1, v2, v3)
+    private func convertVectorFromLocalToWorld(vector: simd_float3, _ quat: simd_quatf) -> simd_float3 {
+        quat.act(vector)
     }
     
-    private func transformVectorFromWorldToLocal(vector: simd_float3, _ quat: simd_float4) -> simd_float3 {
-        let t0 = quat.x * vector.x + quat.y * vector.y + quat.z * vector.z
-        let t1 = quat.w * vector.x - quat.y * vector.z + quat.z * vector.y
-        let t2 = quat.w * vector.y + quat.x * vector.z - quat.z * vector.x
-        let t3 = quat.w * vector.z - quat.x * vector.y + quat.y * vector.x
-        
-        let v1 = t0 * quat.x + t1 * quat.w + t2 * quat.z - t3 * quat.y
-        let v2 = t0 * quat.y - t1 * quat.z + t2 * quat.w + t3 * quat.x
-        let v3 = t0 * quat.z + t1 * quat.y - t2 * quat.x + t3 * quat.w
-        
-        return simd_float3(v1, v2, v3)
+    private func convertVectorFromWorldToLocal(vector: simd_float3, _ quat: simd_quatf) -> simd_float3 {
+        quat.inverse.act(vector)
     }
 }
 
