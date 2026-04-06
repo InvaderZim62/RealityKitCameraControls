@@ -40,6 +40,7 @@ class ViewController: UIViewController {
     let worldAnchor = AnchorEntity()
     let camera = PerspectiveCamera()
     var cameraOffset = simd_float3(0, 0, Constant.cameraDistance)
+    var camerRotation: Float = 0
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -64,6 +65,9 @@ class ViewController: UIViewController {
         
         let pinch = UIPinchGestureRecognizer(target: self, action: #selector(handlePinch))
         arView.addGestureRecognizer(pinch)
+        
+        let rotation = UIRotationGestureRecognizer(target: self, action: #selector(handleRotation))
+        arView.addGestureRecognizer(rotation)
     }
     
     @objc func handlePan(recognizer: UIPanGestureRecognizer) {
@@ -74,35 +78,52 @@ class ViewController: UIViewController {
             let deltaUp = Float(-translation.y / 150)
             let deltaRight = Float(translation.x / 150)
 
+            //  Xcode definitions:
+            //    euler.x = pitch angle (pos. nose up)
+            //    euler.y = yaw angle   (pos. nose left)
+            //    euler.z = bank angle  (pos. bank left)
+
+            print()
             let cameraEulers = camera.transform.matrix.eulerAngles
-            
-            let deltaPitch = deltaUp
-            var deltaYaw = -deltaRight * cos(cameraEulers.x)
-            let deltaRoll = deltaRight * sin(cameraEulers.x)
-            if abs(cameraEulers.z) > .pi / 2 {
-                deltaYaw *= -1  // bug fix? when past vertical
-            }
-            camera.orientation = camera.orientation.rotatedBy(deltaPitch: deltaPitch, deltaYaw: deltaYaw, deltaRoll: deltaRoll)
-            
+            prettyPrint(eulers: cameraEulers)
+
+            // pan right: rotate world around world y-axis (rotate camera about negative world y-axis)
+            // pan up: rotate world about screen left-axis (rotate camera about positive camera x-axis)
+            let deltaCamera = transformVectorToBody(simd_float3(0, -deltaRight, 0), camera.orientation.vector)
+            camera.orientation = camera.orientation.rotatedBy(deltaPitch: deltaUp + deltaCamera.x, deltaYaw: deltaCamera.y, deltaRoll: deltaCamera.z)
+
         } else if recognizer.numberOfTouches == 2 {
             // offset camera
             let deltaPosition = simd_float3(Float(translation.x), Float(-translation.y), 0) / 180
             cameraOffset -= deltaPosition
         }
-        camera.position = transformVector(cameraOffset, camera.transform.matrix)
+        
+        camera.position = transformVectorToWorld(cameraOffset, camera.orientation.vector)
         recognizer.setTranslation(.zero, in: recognizer.view)
     }
 
     // pinching moves camera forwards/aft (ie. camera z-direction)
     @objc func handlePinch(recognizer: UIPinchGestureRecognizer) {
         cameraOffset.z /= Float(recognizer.scale)
-        camera.position = transformVector(cameraOffset, camera.transform.matrix)
+        camera.position = transformVectorToWorld(cameraOffset, camera.orientation.vector)
         recognizer.scale = 1
     }
     
+    @objc func handleRotation(recognizer: UIRotationGestureRecognizer) {
+        // rotate clockwise: rotate about screen negative z-axis (camera roll)
+        let deltaRoll = Float(recognizer.rotation)
+        camera.orientation = camera.orientation.rotatedBy(deltaPitch: 0, deltaYaw: 0, deltaRoll: deltaRoll)
+        let deltaQuat = simd_quatf(angle: deltaRoll, axis: [0, 0, 1])  // this works for strafing, but not pan-rotating
+        cameraOffset = transformVectorToBody(cameraOffset, deltaQuat.vector)
+        recognizer.rotation = 0
+        print()
+        let cameraEulers = camera.transform.matrix.eulerAngles
+        prettyPrint(eulers: cameraEulers)
+    }
+    
     // transform vector from body to world coordinates
-    public func transformVector(_ vector: simd_float3, _ transform: simd_float4x4) -> simd_float3 {
-        let quat = simd_quatf(transform).vector  // simd_float4 (x, y, z, w)
+    public func transformVectorToWorld(_ vector: simd_float3, _ quat: simd_float4) -> simd_float3 {
+//        let quat = simd_quatf(transform).vector  // simd_float4 (x, y, z, w)
         
         let t0 = -quat.x * vector.x - quat.y * vector.y - quat.z * vector.z
         let t1 =  quat.w * vector.x + quat.y * vector.z - quat.z * vector.y
@@ -114,6 +135,30 @@ class ViewController: UIViewController {
         let v3 = -t0 * quat.z - t1 * quat.y + t2 * quat.x + t3 * quat.w
         
         return simd_float3(v1, v2, v3)
+    }
+    
+    // transform vector from world to body coordinates
+    private func transformVectorToBody(_ vector: simd_float3, _ quat: simd_float4) -> simd_float3 {
+        let t0 = quat.x * vector.x + quat.y * vector.y + quat.z * vector.z
+        let t1 = quat.w * vector.x - quat.y * vector.z + quat.z * vector.y
+        let t2 = quat.w * vector.y + quat.x * vector.z - quat.z * vector.x
+        let t3 = quat.w * vector.z - quat.x * vector.y + quat.y * vector.x
+        
+        let v1 = t0 * quat.x + t1 * quat.w + t2 * quat.z - t3 * quat.y
+        let v2 = t0 * quat.y - t1 * quat.z + t2 * quat.w + t3 * quat.x
+        let v3 = t0 * quat.z + t1 * quat.y - t2 * quat.x + t3 * quat.w
+        
+        return simd_float3(v1, v2, v3)
+    }
+    
+    func prettyPrint(eulers: simd_float3) {  // in degrees
+        print(String(format: "Eulers: pitch: %.1f, yaw: %.1f, roll: %.1f", eulers.x * 180 / .pi, eulers.y * 180 / .pi, eulers.z * 180 / .pi))
+    }
+}
+
+extension simd_float3 {
+    var magnitude: Float {
+        sqrt(x * x + y * y + z * z)
     }
 }
 
@@ -140,19 +185,12 @@ extension simd_quatf {
         let deltaQz = (-quat.y * deltaPitch + quat.x * deltaYaw + quat.w * deltaRoll) / 2
         
         // intergate quaternion rates
-        var qw = quat.w + deltaQw
-        var qx = quat.x + deltaQx
-        var qy = quat.y + deltaQy
-        var qz = quat.z + deltaQz
+        let qw = quat.w + deltaQw
+        let qx = quat.x + deltaQx
+        let qy = quat.y + deltaQy
+        let qz = quat.z + deltaQz
         
         // normalize quaternions to prevent integration error growth
-        let qnorm = sqrt(pow(qw, 2) + pow(qx, 2) + pow(qy, 2) + pow(qz, 2))
-        
-        qw /= qnorm
-        qx /= qnorm
-        qy /= qnorm
-        qz /= qnorm
-        
-        return simd_quatf(ix: qx, iy: qy, iz: qz, r: qw)
+        return simd_normalize(simd_quatf(ix: qx, iy: qy, iz: qz, r: qw))
     }
 }
