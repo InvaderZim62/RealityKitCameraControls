@@ -41,7 +41,7 @@ class ViewController: UIViewController {
         super.viewDidLoad()
         
         arView.cameraMode = .nonAR
-        arView.debugOptions = [.showWorldOrigin, .showPhysics]  // use .showPhysics with .generateCollisionShapes
+        arView.debugOptions = [.showWorldOrigin, .showPhysics]  // show axes (requires .generateCollisionShapes)
         arView.environment.background = .color(.lightGray)
         arView.scene.addAnchor(worldAnchor)
 
@@ -52,7 +52,7 @@ class ViewController: UIViewController {
         let box = ModelEntity(mesh: .generateBox(size: [1, 1, 1]))
         box.model?.materials = [material]
         box.position = [0, 0, 0]
-        box.generateCollisionShapes(recursive: false)  // use with debugOptions
+        box.generateCollisionShapes(recursive: false)  // needed for debugOptions
         worldAnchor.addChild(box)
 
         let pan = UIPanGestureRecognizer(target: self, action: #selector(handlePan))
@@ -77,8 +77,9 @@ class ViewController: UIViewController {
             // deltaUp rotates the scene/camera about the camera x-axis;
             // deltaRight must be converted to camera coordinates before adding to deltaUp
             let deltaCamera = convertVectorFromWorldToLocal(vector: simd_float3(0, -deltaRight, 0), camera.orientation)
-            camera.orientation = camera.orientation.rotatedBy(deltaPitch: deltaUp + deltaCamera.x, deltaYaw: deltaCamera.y, deltaRoll: deltaCamera.z)
-
+            camera.orientation = camera.orientation.rotatedBy(deltaPitch: deltaCamera.x + deltaUp,
+                                                              deltaYaw: deltaCamera.y,
+                                                              deltaRoll: deltaCamera.z)
         } else if recognizer.numberOfTouches == 2 {
             // offset camera
             let deltaRight = Float(translation.x / 75)
@@ -130,7 +131,7 @@ extension simd_quatf {
         let deltaQy = ( quat.z * deltaPitch + quat.w * deltaYaw - quat.x * deltaRoll) / 2
         let deltaQz = (-quat.y * deltaPitch + quat.x * deltaYaw + quat.w * deltaRoll) / 2
         
-        // increment quaternion rates
+        // integrate quaternion rates
         let qw = quat.w + deltaQw
         let qx = quat.x + deltaQx
         let qy = quat.y + deltaQy
