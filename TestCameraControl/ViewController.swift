@@ -29,17 +29,13 @@
 import UIKit
 import RealityKit
 
-struct Constant {
-    static let cameraDistance: Float = 4  // can't be at 0, for pinch to work
-}
-
 class ViewController: UIViewController {
 
     @IBOutlet weak var arView: ARView!
     
     let worldAnchor = AnchorEntity()
     let camera = PerspectiveCamera()
-    var cameraOffset = simd_float3(0, 0, Constant.cameraDistance)
+    var cameraOffset = simd_float3(0, 0, 10)  // position in camera coordinates
     var camerRotation: Float = 0
 
     override func viewDidLoad() {
@@ -50,15 +46,15 @@ class ViewController: UIViewController {
         arView.environment.background = .color(.lightGray)
         arView.scene.addAnchor(worldAnchor)
 
-        camera.position.z = Constant.cameraDistance
+        camera.position = cameraOffset
         worldAnchor.addChild(camera)
 
-        let cubeMaterial = SimpleMaterial(color: .green, isMetallic: false)
-        let greenCube = ModelEntity(mesh: .generateBox(size: [0.2, 0.2, 0.2]))
-        greenCube.model?.materials = [cubeMaterial]
-        greenCube.position = [0, 0, 0]
-        greenCube.generateCollisionShapes(recursive: false)  // use with debugOptions
-        worldAnchor.addChild(greenCube)
+        let material = SimpleMaterial(color: .gray, isMetallic: false)
+        let box = ModelEntity(mesh: .generateBox(size: [1, 1, 1]))
+        box.model?.materials = [material]
+        box.position = [0, 0, 0]
+        box.generateCollisionShapes(recursive: false)  // use with debugOptions
+        worldAnchor.addChild(box)
 
         let pan = UIPanGestureRecognizer(target: self, action: #selector(handlePan))
         arView.addGestureRecognizer(pan)
@@ -75,17 +71,22 @@ class ViewController: UIViewController {
         
         if recognizer.numberOfTouches == 1 {
             // rotate camera
-            // pan right: rotate world around world y-axis (rotate camera about negative world y-axis)
-            // pan up: rotate world about screen left-axis (rotate camera about positive camera x-axis)
-            let deltaRight = Float(translation.x / 150)
-            let deltaUp = Float(-translation.y / 150)
+            let deltaRight = Float(translation.x / 130)
+            let deltaUp = Float(-translation.y / 130)
 
+            // deltaRight rotates the scene/camera about the world y-axis;
+            // deltaUp rotates the scene/camera about the camera x-axis;
+            // deltaRight must be converted to camera coordinates before adding to deltaUp
             let deltaCamera = convertVectorFromWorldToLocal(vector: simd_float3(0, -deltaRight, 0), camera.orientation)
             camera.orientation = camera.orientation.rotatedBy(deltaPitch: deltaUp + deltaCamera.x, deltaYaw: deltaCamera.y, deltaRoll: deltaCamera.z)
 
         } else if recognizer.numberOfTouches == 2 {
             // offset camera
-            let deltaPosition = simd_float3(Float(translation.x), Float(-translation.y), 0) / 180
+            let deltaRight = Float(translation.x / 75)
+            let deltaUp = Float(-translation.y / 75)
+
+            // deltas move the scene/camera in camera coordinates
+            let deltaPosition = simd_float3(deltaRight, deltaUp, 0)
             cameraOffset -= deltaPosition
         }
         
@@ -93,15 +94,15 @@ class ViewController: UIViewController {
         recognizer.setTranslation(.zero, in: recognizer.view)
     }
 
-    // pinching moves camera forward/aft (ie. camera z-direction)
     @objc func handlePinch(recognizer: UIPinchGestureRecognizer) {
+        // pinching moves the camera forward/aft (ie. camera z-direction)
         cameraOffset.z /= Float(recognizer.scale)
         camera.position = convertVectorFromLocalToWorld(vector: cameraOffset, camera.orientation)
         recognizer.scale = 1
     }
     
     @objc func handleRotation(recognizer: UIRotationGestureRecognizer) {
-        // rotate clockwise: rotate world about axis into screen (rotate camera about positive camera z-axis)
+        // rotation rotates the scene/camera about the camera z-axis (ie. center of screen)
         let deltaRoll = Float(recognizer.rotation)
         camera.orientation = camera.orientation.rotatedBy(deltaPitch: 0, deltaYaw: 0, deltaRoll: deltaRoll)
         let deltaQuat = simd_quatf(angle: deltaRoll, axis: [0, 0, 1])
