@@ -35,8 +35,7 @@ class ViewController: UIViewController {
     
     let worldAnchor = AnchorEntity()
     let camera = PerspectiveCamera()
-    var cameraOffset = simd_float3(0, 0, 10)  // position in camera coordinates
-    var camerRotation: Float = 0
+    var cameraOffset = simd_float3(0, 0, 10)  // camera position in camera coordinates
 
     override func viewDidLoad() {
         super.viewDidLoad()
