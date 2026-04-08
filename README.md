@@ -22,3 +22,9 @@ Here is what the virtual camera control does for each gesture:
 It's important to note, the 1-finger horizontal and vertical pans rotate in different coordinate systems.  The
 horizontal pan (world axes) must be converted to camera axes, then added to the vertical pan (camera axes),
 before applying to the camera rotation.
+
+Here's a side-by-side comparison of several gesture in SceneKit (left) and RealiyKit (right), using this code:
+
+![Camera Control SceneKit cropped](https://github.com/user-attachments/assets/aec5bbe3-b9db-445f-9d3b-e26afd2a3d99)
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+![Camera Contol RealityKit cropped](https://github.com/user-attachments/assets/b5d59ba2-f427-45df-b53e-3fc0eb99e786)
