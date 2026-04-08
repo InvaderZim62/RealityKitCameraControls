@@ -11,10 +11,14 @@ using pan gestures.  This allows smooth rotation past vertical, without any disc
 
 Here is what the virtual camera control does for each gesture:
 
-| Gesture | Fingers | Action |
-| ------- | :-----: | ------ |
-| Horizontal Pan | 1 | Rotates camera about the world y-axis |
-| Vertical Pan | 1 | Rotates camera about camera x-axis |
-| Pan | 2 | Moves camera in camera x/y plane |
-| Pinch | 2 | Moves camera forward/aft (along camera z-axis) |
-| Rotation | 2 | Rotates camera about camera z-axis |
+| Gesture | Fingers | Camera Action |
+| ------- | :-----: | ------------- |
+| Horizontal Pan | 1 | Rotates about world y-axis |
+| Vertical Pan | 1 | Rotates about camera x-axis |
+| Pan | 2 | Moves in camera x/y plane |
+| Pinch | 2 | Moves forward/aft (along camera z-axis) |
+| Rotation | 2 | Rotates about camera z-axis |
+
+It's important to note, the 1-finger horizontal and vertical pans rotate in different coordinate systems.  The
+horizontal pan (world axes) must be converted to camera axes, then added to the vertical pan (camera axes),
+before applying to the camera rotation.
