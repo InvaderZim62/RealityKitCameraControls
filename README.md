@@ -12,7 +12,7 @@ using pan gestures.  This allows smooth rotation past vertical, without any disc
 Here is what the virtual camera control does for each gesture:
 
 | Gesture | Fingers | Action |
-| ------- | ------- | ------ |
+| ------- | :-----: | ------ |
 | Horizontal Pan | 1 | Rotates camera about the world y-axis |
 | Vertical Pan | 1 | Rotates camera about camera x-axis |
 | Pan | 2 | Moves camera in camera x/y plane |
