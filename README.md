@@ -29,6 +29,7 @@ Here's a side-by-side comparison of several gesture in SceneKit and RealiyKit, u
 | :---: | :---: |
 | SceneKit | RealityKit |
 
-Here is what the camera is doing with the same gestures as above.  It was created using aother one of my apps called TwoCameras.
+Here is what the camera is doing with the same gestures as above.  It was created using another one of my apps
+called [TwoCameras](https://github.com/InvaderZim62/TwoCameras).
 
 ![Two cameras](https://github.com/user-attachments/assets/8662b47f-5f0d-415d-a890-0eb833332b98)
