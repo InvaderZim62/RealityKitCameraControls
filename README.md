@@ -15,8 +15,8 @@ Here is what the virtual camera control does for each gesture:
 | ------- | :-----: | ------------- |
 | Horizontal Pan | 1 | Rotate about world y-axis |
 | Vertical Pan | 1 | Rotate about camera x-axis |
-| Pan | 2 | Move in camera x/y plane |
-| Pinch | 2 | Move forward/aft (along camera z-axis) |
+| Pan | 2 | Move along camera x/y axes |
+| Pinch | 2 | Move along camera z-axis |
 | Rotation | 2 | Rotate about camera z-axis |
 
 It's important to note, the 1-finger horizontal and vertical pans rotate in different coordinate systems.  The
