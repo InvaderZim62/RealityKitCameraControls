@@ -23,7 +23,8 @@ It's important to note, the 1-finger horizontal and vertical pans rotate in diff
 horizontal pan (world axes) must be converted to camera axes, then added to the vertical pan (camera axes),
 before applying to the camera rotation.
 
-Here's a side-by-side comparison of several gesture in SceneKit and RealiyKit, using this code:
+Here's a side-by-side comparison of several gesture in SceneKit with built-in camera controls, and RealityKit,
+using my code:
 
 | ![Camera Control SceneKit](https://github.com/user-attachments/assets/aec5bbe3-b9db-445f-9d3b-e26afd2a3d99) | ![Camera Contol RealityKit](https://github.com/user-attachments/assets/b5d59ba2-f427-45df-b53e-3fc0eb99e786) |
 | :---: | :---: |
