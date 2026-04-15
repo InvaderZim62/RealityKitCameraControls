@@ -73,13 +73,15 @@ class ViewController: UIViewController {
             let deltaRight = Float(translation.x / 130)
             let deltaUp = Float(-translation.y / 130)
 
-            // deltaRight rotates the scene/camera about the world y-axis;
-            // deltaUp rotates the scene/camera about the camera x-axis;
+            // deltaRight rotates the scene/camera about the world neg. y-axis;
+            // deltaUp rotates the scene/camera about the camera pos. x-axis;
             // deltaRight must be converted to camera coordinates before adding to deltaUp
             let deltaCamera = convertVectorFromWorldToLocal(vector: simd_float3(0, -deltaRight, 0), camera.orientation)
-            camera.orientation = camera.orientation.rotatedBy(deltaPitch: deltaCamera.x + deltaUp,
-                                                              deltaYaw: deltaCamera.y,
-                                                              deltaRoll: deltaCamera.z)
+            
+            camera.orientation.rotateBy(deltaPitch: deltaCamera.x + deltaUp,
+                                        deltaYaw: deltaCamera.y,
+                                        deltaRoll: deltaCamera.z)
+            
         } else if recognizer.numberOfTouches == 2 {
             // offset camera
             let deltaRight = Float(translation.x / 75)
@@ -104,7 +106,7 @@ class ViewController: UIViewController {
     @objc func handleRotation(recognizer: UIRotationGestureRecognizer) {
         // rotation rotates the scene/camera about the camera z-axis (ie. center of screen)
         let deltaRoll = Float(recognizer.rotation)
-        camera.orientation = camera.orientation.rotatedBy(deltaPitch: 0, deltaYaw: 0, deltaRoll: deltaRoll)
+        camera.orientation.rotateBy(deltaPitch: 0, deltaYaw: 0, deltaRoll: deltaRoll)
         let deltaQuat = simd_quatf(angle: deltaRoll, axis: [0, 0, 1])
         cameraOffset = convertVectorFromWorldToLocal(vector: cameraOffset, deltaQuat)
         recognizer.rotation = 0
@@ -120,9 +122,9 @@ class ViewController: UIViewController {
 }
 
 extension simd_quatf {
-    
+
     // incrementally rotate quaternion
-    func rotatedBy(deltaPitch: Float, deltaYaw: Float, deltaRoll: Float) -> simd_quatf {
+    mutating func rotateBy(deltaPitch: Float, deltaYaw: Float, deltaRoll: Float) {
         let quat = self.vector
         
         // quaternion rates (aeronautical standard, except: p -> q, q -> r, r -> p)
@@ -137,7 +139,7 @@ extension simd_quatf {
         let qy = quat.y + deltaQy
         let qz = quat.z + deltaQz
         
-        // normalize quaternions to prevent error growth
-        return simd_normalize(simd_quatf(ix: qx, iy: qy, iz: qz, r: qw))
+        // re-normalize quaternion
+        self = simd_normalize(simd_quatf(ix: qx, iy: qy, iz: qz, r: qw))
     }
 }
