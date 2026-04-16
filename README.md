@@ -6,8 +6,9 @@ arView.CameraMode = .nonAR).  I quickly learned however, it doesn't include an e
 capability.  While this was added to SwiftUI (using `.realityViewCameraControls(CameraControls.orbit)`), it still
 isn't available in Swift, so I figured out how to do it myself.
 
-An important part of the code is a method called rotatedBy, which incrementally rotates the camera quaternion
-using pan gestures.  This allows smooth rotation past vertical, without any discontinuities or singularities.
+An important part of the code is this line: `camera.setTransformMatrix(transform.matrix, relativeTo: camera)`,
+which is used to incrementally rotate the camera using gestures.  This allows smooth rotation past vertical,
+without any discontinuities or singularities.
 
 Here is what the virtual camera control does for each gesture:
 
