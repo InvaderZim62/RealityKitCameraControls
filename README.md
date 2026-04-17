@@ -12,13 +12,13 @@ without any discontinuities or singularities.
 
 Here is what the virtual camera control does for each gesture:
 
-| Gesture | Fingers | Camera Action |
-| ------- | :-----: | ------------- |
-| Horizontal Pan | 1 | Rotate about world y-axis |
-| Vertical Pan | 1 | Rotate about camera x-axis |
-| Pan | 2 | Move along camera x/y axes |
-| Pinch | 2 | Move along camera z-axis |
-| Rotation | 2 | Rotate about camera z-axis |
+| Gesture | Camera Action |
+| ------- | ------------- |
+| 1-Finger Horizontal Pan | Rotate about world y-axis |
+| 1-Finger Vertical Pan | Rotate about camera x-axis |
+| 2-Finger Pan | Move along camera x/y axes |
+| Pinch | Move along camera z-axis |
+| Rotation | Rotate about camera z-axis |
 
 It's important to note, the 1-finger horizontal and vertical pans rotate in different coordinate systems.  The
 horizontal pan (world axes) must be converted to camera axes, then added to the vertical pan (camera axes),
